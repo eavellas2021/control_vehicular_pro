@@ -5,8 +5,24 @@ class VehiclesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Text('Vehículos', style: TextStyle(fontSize: 30)),
+    return Scaffold(
+      body: const Center(
+        child: Text(
+          'No hay vehículos registrados',
+          style: TextStyle(fontSize: 18),
+        ),
+      ),
+
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          // Aquí conectaremos el VehicleDialog
+          // en la siguiente entrega.
+        },
+
+        icon: const Icon(Icons.add),
+
+        label: const Text("Nuevo"),
+      ),
     );
   }
 }
