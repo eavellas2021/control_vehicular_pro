@@ -4,113 +4,101 @@ import '../models/vehicle.dart';
 import '../repositories/vehicle_repository.dart';
 
 class VehicleController extends ChangeNotifier {
+  final IVehicleRepository _repository;
+
   VehicleController(this._repository);
 
-  final VehicleRepository _repository;
+  final List<Vehicle> _vehicles = [];
 
-  List<Vehicle> _vehicles = [];
+  bool _isLoading = false;
 
-  bool _loading = false;
+  String _searchText = '';
 
-  Vehicle? _selectedVehicle;
+  bool get isLoading => _isLoading;
 
-  List<Vehicle> get vehicles => List.unmodifiable(_vehicles);
+  String get searchText => _searchText;
 
-  bool get isLoading => _loading;
+  List<Vehicle> get vehicles {
+    if (_searchText.isEmpty) {
+      return List.unmodifiable(_vehicles);
+    }
 
-  Vehicle? get selectedVehicle => _selectedVehicle;
+    final filter = _searchText.toLowerCase();
 
-  int get totalVehicles => _vehicles.length;
-
-  //--------------------------------------------------
-  // Inicializar
-  //--------------------------------------------------
+    return _vehicles.where((v) {
+      return v.name.toLowerCase().contains(filter) ||
+          v.brand.toLowerCase().contains(filter) ||
+          v.line.toLowerCase().contains(filter) ||
+          v.model.toLowerCase().contains(filter) ||
+          v.plate.toLowerCase().contains(filter);
+    }).toList();
+  }
 
   Future<void> initialize() async {
-    _loading = true;
-
-    notifyListeners();
-
-    _vehicles = await _repository.getAll();
-
-    if (_vehicles.isNotEmpty) {
-      _selectedVehicle = _vehicles.first;
-    }
-
-    _loading = false;
-
-    notifyListeners();
+    await loadVehicles();
   }
 
-  //--------------------------------------------------
-  // Seleccionar
-  //--------------------------------------------------
+  Future<void> loadVehicles() async {
+    _isLoading = true;
+    notifyListeners();
 
-  void selectVehicle(Vehicle vehicle) {
-    _selectedVehicle = vehicle;
+    _vehicles
+      ..clear()
+      ..addAll(await _repository.loadVehicles());
 
+    _isLoading = false;
     notifyListeners();
   }
-
-  //--------------------------------------------------
-  // Crear
-  //--------------------------------------------------
 
   Future<void> addVehicle(Vehicle vehicle) async {
-    await _repository.add(vehicle);
+    await _repository.addVehicle(vehicle);
 
-    await initialize();
+    await loadVehicles();
   }
-
-  //--------------------------------------------------
-  // Editar
-  //--------------------------------------------------
 
   Future<void> updateVehicle(Vehicle vehicle) async {
-    await _repository.update(vehicle);
+    await _repository.updateVehicle(vehicle);
 
-    await initialize();
+    await loadVehicles();
   }
-
-  //--------------------------------------------------
-  // Eliminar
-  //--------------------------------------------------
 
   Future<void> deleteVehicle(String id) async {
-    await _repository.delete(id);
+    await _repository.deleteVehicle(id);
 
-    await initialize();
+    await loadVehicles();
   }
 
-  //--------------------------------------------------
-  // Buscar
-  //--------------------------------------------------
+  void search(String value) {
+    _searchText = value.trim();
 
-  Vehicle? getVehicle(String id) {
-    try {
-      return _vehicles.firstWhere((e) => e.id == id);
-    } catch (_) {
-      return null;
-    }
+    notifyListeners();
   }
 
-  //--------------------------------------------------
-  // Validaciones
-  //--------------------------------------------------
+  void clearSearch() {
+    _searchText = '';
 
-  Future<bool> existsPlate(String plate) {
-    return _repository.existsPlate(plate);
+    notifyListeners();
   }
 
-  Future<bool> existsVin(String vin) {
-    return _repository.existsVin(vin);
+  void sortByPlate() {
+    _vehicles.sort((a, b) => a.plate.compareTo(b.plate));
+
+    notifyListeners();
   }
 
-  //--------------------------------------------------
-  // Recargar
-  //--------------------------------------------------
+  void sortByBrand() {
+    _vehicles.sort((a, b) => a.brand.compareTo(b.brand));
 
-  Future<void> refresh() async {
-    await initialize();
+    notifyListeners();
+  }
+
+  void sortByYear() {
+    _vehicles.sort((a, b) => b.year.compareTo(a.year));
+
+    notifyListeners();
+  }
+
+  Future<void> refreshVehicleStatus() async {
+    notifyListeners();
   }
 }

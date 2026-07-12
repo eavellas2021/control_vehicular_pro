@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
-import 'package:xml/xml.dart';
 
 class XmlService {
   static const String _fileName = 'vehiculos.xml';
@@ -12,57 +11,43 @@ class XmlService {
     final file = File('${directory.path}/$_fileName');
 
     if (!await file.exists()) {
-      await file.writeAsString(_defaultXml);
+      await createIfNotExists();
     }
 
     return file;
   }
 
-  Future<XmlDocument> loadDocument() async {
-    final file = await getXmlFile();
+  Future<void> createIfNotExists() async {
+    final directory = await getApplicationDocumentsDirectory();
 
-    final xml = await file.readAsString();
+    final file = File('${directory.path}/$_fileName');
 
-    return XmlDocument.parse(xml);
-  }
+    if (await file.exists()) {
+      return;
+    }
 
-  Future<void> saveDocument(XmlDocument document) async {
-    final file = await getXmlFile();
-
-    await file.writeAsString(document.toXmlString(pretty: true, indent: '  '));
-  }
-
-  Future<void> resetDatabase() async {
-    final file = await getXmlFile();
-
-    await file.writeAsString(_defaultXml);
-  }
-
-  static const String _defaultXml = '''
+    await file.writeAsString('''
 <?xml version="1.0" encoding="UTF-8"?>
 
 <App Version="2.0">
-
-  <Settings>
-
-  </Settings>
 
   <Vehicles>
 
   </Vehicles>
 
-  <Parameters>
-
-    <DocumentTypes>
-
-    </DocumentTypes>
-
-    <MaintenanceTypes>
-
-    </MaintenanceTypes>
-
-  </Parameters>
-
 </App>
-''';
+''');
+  }
+
+  Future<String> readXml() async {
+    final file = await getXmlFile();
+
+    return file.readAsString();
+  }
+
+  Future<void> writeXml(String xml) async {
+    final file = await getXmlFile();
+
+    await file.writeAsString(xml);
+  }
 }

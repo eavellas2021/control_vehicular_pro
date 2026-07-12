@@ -2,104 +2,93 @@ import 'package:xml/xml.dart';
 
 import '../models/vehicle.dart';
 import '../services/xml_service.dart';
-import 'package:uuid/uuid.dart';
 
-class VehicleRepository {
-  final Uuid _uuid = const Uuid();
+abstract class IVehicleRepository {
+  Future<List<Vehicle>> loadVehicles();
+
+  Future<void> saveVehicles(List<Vehicle> vehicles);
+
+  Future<void> addVehicle(Vehicle vehicle);
+
+  Future<void> updateVehicle(Vehicle vehicle);
+
+  Future<void> deleteVehicle(String id);
+}
+
+class VehicleRepository implements IVehicleRepository {
   final XmlService _xmlService;
 
   VehicleRepository(this._xmlService);
 
-  Future<List<Vehicle>> getAll() async {
-    final document = await _xmlService.loadDocument();
+  @override
+  Future<List<Vehicle>> loadVehicles() async {
+    final xmlString = await _xmlService.readXml();
 
-    final vehiclesNode = document.rootElement.getElement("Vehicles");
+    final document = XmlDocument.parse(xmlString);
+
+    final vehiclesNode = document.rootElement.getElement('Vehicles');
 
     if (vehiclesNode == null) {
       return [];
     }
 
-    return vehiclesNode.findElements("Vehicle").map(Vehicle.fromXml).toList();
+    return vehiclesNode.findElements('Vehicle').map(Vehicle.fromXml).toList();
   }
 
-  Future<Vehicle?> getById(String id) async {
-    final vehicles = await getAll();
+  @override
+  Future<void> saveVehicles(List<Vehicle> vehicles) async {
+    final builder = XmlBuilder();
 
-    try {
-      return vehicles.firstWhere((e) => e.id == id);
-    } catch (_) {
-      return null;
-    }
-  }
+    builder.processing('xml', 'version="1.0" encoding="UTF-8"');
 
-  Future<bool> existsPlate(String plate) async {
-    final vehicles = await getAll();
-
-    return vehicles.any((v) => v.plate.toUpperCase() == plate.toUpperCase());
-  }
-
-  Future<bool> existsVin(String vin) async {
-    final vehicles = await getAll();
-
-    return vehicles.any((v) => v.vin.toUpperCase() == vin.toUpperCase());
-  }
-
-  Future<void> add(Vehicle vehicle) async {
-    final document = await _xmlService.loadDocument();
-
-    final vehiclesNode = document.rootElement.getElement("Vehicles");
-
-    if (vehiclesNode == null) {
-      throw Exception("Nodo Vehicles no encontrado.");
-    }
-
-    final newVehicle = vehicle.copyWith(
-      id: _uuid.v4(),
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
+    builder.element(
+      'App',
+      attributes: {'Version': '2.0'},
+      nest: () {
+        builder.element(
+          'Vehicles',
+          nest: () {
+            for (final vehicle in vehicles) {
+              builder.xml(vehicle.toXml().toXmlString(pretty: true));
+            }
+          },
+        );
+      },
     );
 
-    vehiclesNode.children.add(newVehicle.toXml());
+    final document = builder.buildDocument();
 
-    await _xmlService.saveDocument(document);
+    await _xmlService.writeXml(document.toXmlString(pretty: true));
   }
 
-  Future<void> update(Vehicle vehicle) async {
-    final document = await _xmlService.loadDocument();
+  @override
+  Future<void> addVehicle(Vehicle vehicle) async {
+    final vehicles = await loadVehicles();
 
-    final vehiclesNode = document.rootElement.getElement("Vehicles");
+    vehicles.add(vehicle);
 
-    if (vehiclesNode == null) {
-      throw Exception("Nodo Vehicles no encontrado.");
-    }
-
-    final element = vehiclesNode
-        .findElements("Vehicle")
-        .firstWhere((e) => e.getElement("Id")?.innerText == vehicle.id);
-
-    element.replace(vehicle.copyWith(updatedAt: DateTime.now()).toXml());
-
-    await _xmlService.saveDocument(document);
+    await saveVehicles(vehicles);
   }
 
-  Future<void> delete(String id) async {
-    final document = await _xmlService.loadDocument();
+  @override
+  Future<void> updateVehicle(Vehicle vehicle) async {
+    final vehicles = await loadVehicles();
 
-    final vehiclesNode = document.rootElement.getElement("Vehicles");
+    final index = vehicles.indexWhere((v) => v.id == vehicle.id);
 
-    if (vehiclesNode == null) {
-      throw Exception("Nodo <Vehicles> no encontrado.");
-    }
+    if (index == -1) return;
 
-    final element = vehiclesNode
-        .findElements("Vehicle")
-        .firstWhere(
-          (e) => e.getElement("Id")?.innerText == id,
-          orElse: () => throw Exception("Vehículo no encontrado"),
-        );
+    vehicles[index] = vehicle;
 
-    element.parent?.children.remove(element);
+    await saveVehicles(vehicles);
+  }
 
-    await _xmlService.saveDocument(document);
+  @override
+  Future<void> deleteVehicle(String id) async {
+    final vehicles = await loadVehicles();
+
+    vehicles.removeWhere((v) => v.id == id);
+
+    await saveVehicles(vehicles);
   }
 }

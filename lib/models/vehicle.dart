@@ -1,6 +1,12 @@
 import 'package:xml/xml.dart';
 
+import 'vehicle_document.dart';
+
 class Vehicle {
+  //==========================================================
+  // INFORMACIÓN GENERAL
+  //==========================================================
+
   final String id;
 
   final String name;
@@ -9,6 +15,7 @@ class Vehicle {
 
   final String line;
 
+  /// Modelo del vehículo
   final String model;
 
   final String plate;
@@ -37,6 +44,12 @@ class Vehicle {
 
   final DateTime updatedAt;
 
+  //==========================================================
+  // DOCUMENTOS
+  //==========================================================
+
+  final List<VehicleDocument> documents;
+
   const Vehicle({
     required this.id,
     required this.name,
@@ -56,7 +69,12 @@ class Vehicle {
     required this.notes,
     required this.createdAt,
     required this.updatedAt,
+    this.documents = const [],
   });
+
+  //==========================================================
+  // COPY WITH
+  //==========================================================
 
   Vehicle copyWith({
     String? id,
@@ -77,6 +95,7 @@ class Vehicle {
     String? notes,
     DateTime? createdAt,
     DateTime? updatedAt,
+    List<VehicleDocument>? documents,
   }) {
     return Vehicle(
       id: id ?? this.id,
@@ -97,101 +116,148 @@ class Vehicle {
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      documents: documents ?? this.documents,
     );
   }
 
-  //=========================
-  // GETTERS
-  //=========================
+  //==========================================================
+  // PROPIEDADES CALCULADAS
+  //==========================================================
 
   String get displayName => "$brand $line - $plate";
 
-  bool get hasPhoto => imagePath.isNotEmpty;
+  bool get hasPhoto => imagePath.trim().isNotEmpty;
 
   int get age => DateTime.now().year - year;
 
-  String get formattedKm {
-    return "$currentKm km";
-  }
+  String get formattedKm => "$currentKm km";
 
-  //=========================
+  int get totalDocuments => documents.length;
+
+  int get validDocuments =>
+      documents.where((d) => d.status == DocumentStatus.valid).length;
+
+  int get warningDocuments =>
+      documents.where((d) => d.status == DocumentStatus.warning).length;
+
+  int get expiredDocuments =>
+      documents.where((d) => d.status == DocumentStatus.expired).length;
+
+  //==========================================================
   // XML
-  //=========================
+  //==========================================================
 
   XmlElement toXml() {
-    return XmlElement(XmlName("Vehicle"), [], [
-      _node("Id", id),
-      _node("Name", name),
-      _node("Brand", brand),
-      _node("Line", line),
-      _node("Model", model),
-      _node("Plate", plate),
-      _node("Year", year.toString()),
-      _node("Color", color),
-      _node("Vin", vin),
-      _node("Engine", engine),
-      _node("FuelType", fuelType),
-      _node("CurrentKm", currentKm.toString()),
-      _node("PurchaseDate", purchaseDate?.toIso8601String() ?? ""),
-      _node("PurchaseValue", purchaseValue.toString()),
-      _node("ImagePath", imagePath),
-      _node("Notes", notes),
-      _node("CreatedAt", createdAt.toIso8601String()),
-      _node("UpdatedAt", updatedAt.toIso8601String()),
+    return XmlElement(XmlName('Vehicle'), [], [
+      _node('Id', id),
+      _node('Name', name),
+      _node('Brand', brand),
+      _node('Line', line),
+      _node('Model', model),
+      _node('Plate', plate),
+      _node('Year', year.toString()),
+      _node('Color', color),
+      _node('Vin', vin),
+      _node('Engine', engine),
+      _node('FuelType', fuelType),
+      _node('CurrentKm', currentKm.toString()),
+      _node('PurchaseDate', purchaseDate?.toIso8601String() ?? ''),
+      _node('PurchaseValue', purchaseValue.toString()),
+      _node('ImagePath', imagePath),
+      _node('Notes', notes),
+      _node('CreatedAt', createdAt.toIso8601String()),
+      _node('UpdatedAt', updatedAt.toIso8601String()),
 
-      /// Se dejan preparados
-      XmlElement(XmlName("Documents")),
+      XmlElement(
+        XmlName('Documents'),
+        [],
+        documents.map((document) => document.toXml()).toList(),
+      ),
 
-      XmlElement(XmlName("Maintenances")),
+      XmlElement(XmlName('Maintenances'), [], const []),
     ]);
   }
 
   factory Vehicle.fromXml(XmlElement xml) {
+    final documentsNode = xml.getElement('Documents');
+
     return Vehicle(
-      id: _value(xml, "Id"),
-      name: _value(xml, "Name"),
-      brand: _value(xml, "Brand"),
-      line: _value(xml, "Line"),
-      model: _value(xml, "Model"),
-      plate: _value(xml, "Plate"),
-      year: int.tryParse(_value(xml, "Year")) ?? 0,
-      color: _value(xml, "Color"),
-      vin: _value(xml, "Vin"),
-      engine: _value(xml, "Engine"),
-      fuelType: _value(xml, "FuelType"),
-      currentKm: int.tryParse(_value(xml, "CurrentKm")) ?? 0,
-      purchaseDate: _value(xml, "PurchaseDate").isEmpty
+      id: _value(xml, 'Id'),
+      name: _value(xml, 'Name'),
+      brand: _value(xml, 'Brand'),
+      line: _value(xml, 'Line'),
+      model: _value(xml, 'Model'),
+      plate: _value(xml, 'Plate'),
+      year: int.tryParse(_value(xml, 'Year')) ?? 0,
+      color: _value(xml, 'Color'),
+      vin: _value(xml, 'Vin'),
+      engine: _value(xml, 'Engine'),
+      fuelType: _value(xml, 'FuelType'),
+      currentKm: int.tryParse(_value(xml, 'CurrentKm')) ?? 0,
+      purchaseDate: _value(xml, 'PurchaseDate').isEmpty
           ? null
-          : DateTime.parse(_value(xml, "PurchaseDate")),
-      purchaseValue: double.tryParse(_value(xml, "PurchaseValue")) ?? 0,
-      imagePath: _value(xml, "ImagePath"),
-      notes: _value(xml, "Notes"),
-      createdAt: DateTime.parse(_value(xml, "CreatedAt")),
-      updatedAt: DateTime.parse(_value(xml, "UpdatedAt")),
+          : DateTime.parse(_value(xml, 'PurchaseDate')),
+      purchaseValue: double.tryParse(_value(xml, 'PurchaseValue')) ?? 0,
+      imagePath: _value(xml, 'ImagePath'),
+      notes: _value(xml, 'Notes'),
+      createdAt: _safeDate(_value(xml, 'CreatedAt')),
+      updatedAt: _safeDate(_value(xml, 'UpdatedAt')),
+      documents: documentsNode == null
+          ? const []
+          : documentsNode
+                .findElements('Document')
+                .map(VehicleDocument.fromXml)
+                .toList(),
     );
   }
 
-  static XmlElement _node(String name, Object? value) {
-    return XmlElement(XmlName(name), [], [XmlText(value?.toString() ?? '')]);
+  //==========================================================
+  // MÉTODOS AUXILIARES XML
+  //==========================================================
+
+  static XmlElement _node(String name, String value) {
+    return XmlElement(XmlName(name), [], [XmlText(value)]);
   }
 
   static String _value(XmlElement xml, String tag) {
     final node = xml.getElement(tag);
 
     if (node == null) {
-      return "";
+      return '';
     }
 
     return node.innerText;
   }
 
-  @override
-  String toString() => displayName;
+  static DateTime _safeDate(String value) {
+    if (value.trim().isEmpty) {
+      return DateTime.now();
+    }
+
+    try {
+      return DateTime.parse(value);
+    } catch (_) {
+      return DateTime.now();
+    }
+  }
+
+  //==========================================================
+  // UTILIDADES
+  //==========================================================
 
   @override
-  bool operator ==(Object other) =>
-      identical(this, other) || other is Vehicle && other.id == id;
+  String toString() {
+    return displayName;
+  }
 
   @override
-  int get hashCode => id.hashCode;
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is Vehicle && runtimeType == other.runtimeType && id == other.id;
+  }
+
+  @override
+  int get hashCode {
+    return id.hashCode;
+  }
 }
